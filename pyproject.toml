@@ -32,6 +32,8 @@ nbdoc = "^0.0.82"
 [tool.poetry.group.codespell.dependencies]
 codespell = "^2.2.0"
 
+[tool.setuptools]
+py-modules = []
 
 [tool.codespell]
 skip = '.git,*.pdf,*.svg,*.pdf,*.yaml,*.ipynb,poetry.lock,*.min.js,*.css,package-lock.json,example_data,_dist,examples'
