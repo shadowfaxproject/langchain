@@ -33,19 +33,25 @@ def _metadata_extractor(raw_html: str, status_code: int, url: str) -> dict:
 
     try:
         from bs4 import BeautifulSoup
+        soup = BeautifulSoup(raw_html, "html.parser")
+        if title := soup.find("title"):
+            metadata["title"] = title.get_text()
+        if description := soup.find("meta", attrs={"name": "description"}):
+            metadata["description"] = description.get("content", None)
+        if html := soup.find("html"):
+            metadata["language"] = html.get("lang", None)
     except ImportError:
         logger.warning(
             "The bs4 package is required for default metadata extraction. "
             "Please install it with `pip install bs4`."
         )
         return metadata
-    soup = BeautifulSoup(raw_html, "html.parser")
-    if title := soup.find("title"):
-        metadata["title"] = title.get_text()
-    if description := soup.find("meta", attrs={"name": "description"}):
-        metadata["description"] = description.get("content", None)
-    if html := soup.find("html"):
-        metadata["language"] = html.get("lang", None)
+    except Exception as e:
+        logger.warning(
+            f"Unable to parse raw html from {url}. Received error {e} of type "
+            f"{e.__class__.__name__}"
+        )
+        return metadata
     return metadata
 
 
@@ -197,23 +203,25 @@ class RecursiveUrlLoader(BaseLoader):
         visited.add(url)
         try:
             response = self._get_url_with_multiple_attempts(url)
-            # response = requests.get(url, timeout=self.timeout, headers=self.headers)
             if self.check_response_status and 400 <= response.status_code <= 599:
                 raise ValueError(f"Received HTTP status {response.status_code}")
+            if self.extractor is None:
+                content = response.text
+            content = self.extractor(response.text)
+            if content:
+                yield Document(
+                    page_content=content,
+                    metadata=self.metadata_extractor(
+                        response.text, response.status_code, url
+                    ),
+                )
+
         except Exception as e:
             logger.warning(
                 f"Unable to load from {url}. Received error {e} of type "
                 f"{e.__class__.__name__}"
             )
             return
-        content = self.extractor(response.text)
-        if content:
-            yield Document(
-                page_content=content,
-                metadata=self.metadata_extractor(
-                    response.text, response.status_code, url
-                ),
-            )
 
         # Store the visited links and recursively visit the children
         sub_links = extract_sub_links(
