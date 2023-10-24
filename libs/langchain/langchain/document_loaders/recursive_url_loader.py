@@ -33,6 +33,7 @@ def _metadata_extractor(raw_html: str, status_code: int, url: str) -> dict:
 
     try:
         from bs4 import BeautifulSoup
+
         soup = BeautifulSoup(raw_html, "html.parser")
         if title := soup.find("title"):
             metadata["title"] = title.get_text()
